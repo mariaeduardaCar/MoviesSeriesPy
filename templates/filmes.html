@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Busca de Filmes e Séries</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex flex-col items-center p-6">
+  <h1 class="text-4xl font-bold mb-8 text-center">Busca de Filmes e Séries</h1>
+
+  <!-- Formulário para buscar filmes ou séries -->
+  <form id="form-busca" class="w-full max-w-lg bg-gray-800 p-6 rounded-lg shadow-md">
+    <div class="mb-4">
+      <label for="tipo" class="block text-lg font-medium mb-2">Tipo:</label>
+      <select id="tipo" name="tipo" required class="w-full p-2 bg-gray-700 rounded text-white">
+        <option value="filme">Filme</option>
+        <option value="serie">Série</option>
+      </select>
+    </div>
+    <div class="mb-4">
+      <label for="titulo" class="block text-lg font-medium mb-2">Título:</label>
+      <input type="text" id="titulo" name="titulo" required class="w-full p-2 bg-gray-700 rounded text-white">
+    </div>
+    <button type="submit" class="w-full bg-red-600 hover:bg-red-700 p-2 rounded-lg font-bold">Buscar</button>
+  </form>
+
+  <div id="resultado" class="mt-8 w-full max-w-3xl bg-gray-800 p-6 rounded-lg shadow-md"></div>
+  
+  <hr class="my-8 border-gray-700 w-full max-w-3xl">
+
+  <!-- Botões para visualizar favoritos e histórico -->
+  <div class="flex space-x-4">
+    <button id="btn-favoritos" class="bg-blue-600 hover:bg-blue-700 p-3 rounded-lg font-bold">Ver Favoritos</button>
+    <button id="btn-historico" class="bg-green-600 hover:bg-green-700 p-3 rounded-lg font-bold">Ver Histórico</button>
+  </div>
+  
+  <div id="dados" class="mt-8 w-full max-w-3xl bg-gray-800 p-6 rounded-lg shadow-md"></div>
+
+
+  <button onclick="apagarHistorico()">Apagar Histórico</button>
+
+  <script>
+    // Função para buscar detalhes de filmes ou séries
+    document.getElementById('form-busca').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const tipo = document.getElementById('tipo').value;
+      const titulo = document.getElementById('titulo').value;
+      const resposta = await fetch(`/buscar?tipo=${tipo}&titulo=${titulo}`);
+      const dados = await resposta.json();
+
+      if (resposta.ok) {
+        document.getElementById('resultado').innerHTML = `
+          <h2>Resultado:</h2>
+          <p><strong>Título:</strong> ${dados.titulo}</p>
+          <p><strong>Descrição:</strong> ${dados.descricao}</p>
+          <p><strong>Data de Lançamento:</strong> ${dados.data_lancamento}</p>
+          <button onclick="adicionarFavorito('${dados.titulo}', '${tipo}', '${dados.descricao}')">Adicionar aos Favoritos</button>
+        `;
+      } else {
+        document.getElementById('resultado').innerHTML = `<p>${dados.erro}</p>`;
+      }
+    });
+
+    // Função para adicionar um item aos favoritos
+    async function adicionarFavorito(titulo, tipo, descricao) {
+      const resposta = await fetch('/favoritos/adicionar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ titulo, tipo, descricao })
+      });
+      const dados = await resposta.json();
+      alert(dados.mensagem || dados.erro);
+    }
+
+    // Função para listar favoritos
+    document.getElementById('btn-favoritos').addEventListener('click', async () => {
+      const resposta = await fetch('/favoritos');
+      const dados = await resposta.json();
+      mostrarDados('Favoritos', dados);
+    });
+
+    // Função para listar histórico
+    document.getElementById('btn-historico').addEventListener('click', async () => {
+      const resposta = await fetch('/historico');
+      const dados = await resposta.json();
+      mostrarDados('Histórico de Buscas', dados);
+    });
+
+// Função para exibir os dados
+function mostrarDados(titulo, dados) {
+  let html = `<h2>${titulo}:</h2>`;
+  if (dados.length === 0) {
+    html += `<p>Nenhum item encontrado.</p>`;
+  } else {
+    html += '<ul>';
+    dados.forEach(item => {
+      html += `
+        <li>
+          <strong>${item.titulo}</strong> (${item.tipo})
+         ${titulo === 'Favoritos' ? `<button onclick="removerFavorito(${item.id})" class="remover-favorito bg-red-600 hover:bg-red-700 p-2 rounded-full text-white text-lg w-8 h-8 flex items-center justify-center">X</button>` : ''}
+
+        </li>
+      `;
+    });
+    html += '</ul>';
+  }
+  document.getElementById('dados').innerHTML = html;
+}
+
+// Função para remover favorito
+function removerFavorito(id) {
+  fetch(`/favoritos/${id}`, {
+    method: 'DELETE',
+  })
+  .then(response => {
+    if (response.ok) {
+      alert('Favorito removido!');
+      document.getElementById('btn-favoritos').click();  // Recarrega a lista de favoritos após remoção
+    } else {
+      alert('Erro ao remover favorito!');
+    }
+  });
+}
+    function apagarHistorico() {
+  fetch('/historico/apagar', { method: 'DELETE' })
+    .then(response => response.json())
+    .then(data => {
+      if (data.mensagem) {
+        alert(data.mensagem);
+        location.reload();  // Atualiza a página para mostrar o histórico vazio
+      } else {
+        alert(data.erro);
+      }
+    });
+}
+  </script>
+</body>
+</html>
